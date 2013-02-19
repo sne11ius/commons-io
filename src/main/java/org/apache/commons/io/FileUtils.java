@@ -950,6 +950,31 @@ public class FileUtils {
 
         return urls;
     }
+    
+    public static void copyToDirectory(final File src, final File destDir, final ProgressListener progressListener) throws IOException {
+    	if (null == src) {
+    		throw new NullPointerException("Source must not be null.");
+    	}
+    	if (src.isFile()) {
+    		copyFileToDirectory(src, destDir, progressListener);
+    	} else {
+    		copyDirectoryToDirectory(src, destDir, progressListener);
+    	}
+    }
+    
+    public static void copyToDirectory(final Collection<File> src, final File destDir, final ProgressListener progressListener) throws IOException {
+    	if (null == src) {
+    		throw new NullPointerException("Source must not be null.");
+    	}
+    	InternalProgressListener internalListener = null;
+    	if (null != progressListener) {
+    		final long sizeTotal = sizeOf(src);
+    		internalListener = new InternalProgressListener(sizeTotal, progressListener);
+    	}
+    	for (File singleSrc : src) {
+			copyToDirectory(singleSrc, destDir, internalListener);
+		}
+    }
 
     //-----------------------------------------------------------------------
     /**
@@ -973,8 +998,8 @@ public class FileUtils {
      * @throws IOException if an IO error occurs during copying
      * @see #copyFile(File, File, boolean)
      */
-    public static void copyFileToDirectory(final File srcFile, final File destDir) throws IOException {
-        copyFileToDirectory(srcFile, destDir, true);
+    public static void copyFileToDirectory(final File srcFile, final File destDir, final ProgressListener progressListener) throws IOException {
+        copyFileToDirectory(srcFile, destDir, true, progressListener);
     }
 
     /**
@@ -1002,7 +1027,7 @@ public class FileUtils {
      * @see #copyFile(File, File, boolean)
      * @since 1.3
      */
-    public static void copyFileToDirectory(final File srcFile, final File destDir, final boolean preserveFileDate) throws IOException {
+    public static void copyFileToDirectory(final File srcFile, final File destDir, final boolean preserveFileDate, final ProgressListener progressListener) throws IOException {
         if (destDir == null) {
             throw new NullPointerException("Destination must not be null");
         }
@@ -1010,7 +1035,7 @@ public class FileUtils {
             throw new IllegalArgumentException("Destination '" + destDir + "' is not a directory");
         }
         final File destFile = new File(destDir, srcFile.getName());
-        copyFile(srcFile, destFile, preserveFileDate);
+        copyFile(srcFile, destFile, preserveFileDate, progressListener);
     }
 
     /**
@@ -1035,7 +1060,7 @@ public class FileUtils {
      * @see #copyFileToDirectory(File, File)
      */
     public static void copyFile(final File srcFile, final File destFile) throws IOException {
-        copyFile(srcFile, destFile, true);
+        copyFile(srcFile, destFile, true, null);
     }
 
     /**
@@ -1063,7 +1088,7 @@ public class FileUtils {
      * @see #copyFileToDirectory(File, File, boolean)
      */
     public static void copyFile(final File srcFile, final File destFile,
-            final boolean preserveFileDate) throws IOException {
+            final boolean preserveFileDate, final ProgressListener progressListener) throws IOException {
         if (srcFile == null) {
             throw new NullPointerException("Source must not be null");
         }
@@ -1088,7 +1113,12 @@ public class FileUtils {
         if (destFile.exists() && destFile.canWrite() == false) {
             throw new IOException("Destination '" + destFile + "' exists but is read-only");
         }
-        doCopyFile(srcFile, destFile, preserveFileDate);
+        InternalProgressListener internalProgressListener= null;
+        if (null != progressListener) {
+        	final long sizeTotal = sizeOf(srcFile);
+        	internalProgressListener = new InternalProgressListener(sizeTotal, progressListener);
+        }
+        doCopyFile(srcFile, destFile, preserveFileDate, internalProgressListener);
     }
 
     /**
@@ -1125,7 +1155,7 @@ public class FileUtils {
      * @param preserveFileDate  whether to preserve the file date
      * @throws IOException if an error occurs
      */
-    private static void doCopyFile(final File srcFile, final File destFile, final boolean preserveFileDate) throws IOException {
+    private static void doCopyFile(final File srcFile, final File destFile, final boolean preserveFileDate, final InternalProgressListener internalProgressListener) throws IOException {
         if (destFile.exists() && destFile.isDirectory()) {
             throw new IOException("Destination '" + destFile + "' exists but is a directory");
         }
@@ -1145,6 +1175,14 @@ public class FileUtils {
             while (pos < size) {
                 count = size - pos > FILE_COPY_BUFFER_SIZE ? FILE_COPY_BUFFER_SIZE : size - pos;
                 pos += output.transferFrom(input, pos, count);
+                if (null != internalProgressListener) {
+	                try {
+	                	internalProgressListener.onProgress(pos, size);
+	                } catch (final Throwable t){}
+                }
+            }
+            if (null != internalProgressListener) {
+            	internalProgressListener.shiftCurrentOffset(size);
             }
         } finally {
             IOUtils.closeQuietly(output);
@@ -1186,7 +1224,7 @@ public class FileUtils {
      * @throws IOException if an IO error occurs during copying
      * @since 1.2
      */
-    public static void copyDirectoryToDirectory(final File srcDir, final File destDir) throws IOException {
+    public static void copyDirectoryToDirectory(final File srcDir, final File destDir, final ProgressListener progressListener) throws IOException {
         if (srcDir == null) {
             throw new NullPointerException("Source must not be null");
         }
@@ -1199,7 +1237,7 @@ public class FileUtils {
         if (destDir.exists() && destDir.isDirectory() == false) {
             throw new IllegalArgumentException("Destination '" + destDir + "' is not a directory");
         }
-        copyDirectory(srcDir, new File(destDir, srcDir.getName()), true);
+        copyDirectory(srcDir, new File(destDir, srcDir.getName()), true, progressListener);
     }
 
     /**
@@ -1226,8 +1264,8 @@ public class FileUtils {
      * @throws IOException if an IO error occurs during copying
      * @since 1.1
      */
-    public static void copyDirectory(final File srcDir, final File destDir) throws IOException {
-        copyDirectory(srcDir, destDir, true);
+    public static void copyDirectory(final File srcDir, final File destDir, final ProgressListener progressListener) throws IOException {
+        copyDirectory(srcDir, destDir, true, progressListener);
     }
 
     /**
@@ -1257,8 +1295,8 @@ public class FileUtils {
      * @since 1.1
      */
     public static void copyDirectory(final File srcDir, final File destDir,
-            final boolean preserveFileDate) throws IOException {
-        copyDirectory(srcDir, destDir, null, preserveFileDate);
+            final boolean preserveFileDate, final ProgressListener progressListener) throws IOException {
+        copyDirectory(srcDir, destDir, null, preserveFileDate, progressListener);
     }
 
     /**
@@ -1307,7 +1345,7 @@ public class FileUtils {
      */
     public static void copyDirectory(final File srcDir, final File destDir,
             final FileFilter filter) throws IOException {
-        copyDirectory(srcDir, destDir, filter, true);
+        copyDirectory(srcDir, destDir, filter, true, null);
     }
 
     /**
@@ -1357,7 +1395,7 @@ public class FileUtils {
      * @since 1.4
      */
     public static void copyDirectory(final File srcDir, final File destDir,
-            final FileFilter filter, final boolean preserveFileDate) throws IOException {
+            final FileFilter filter, final boolean preserveFileDate, final ProgressListener progressListener) throws IOException {
         if (srcDir == null) {
             throw new NullPointerException("Source must not be null");
         }
@@ -1386,7 +1424,7 @@ public class FileUtils {
                 }
             }
         }
-        doCopyDirectory(srcDir, destDir, filter, preserveFileDate, exclusionList);
+        doCopyDirectory(srcDir, destDir, filter, preserveFileDate, exclusionList, progressListener);
     }
 
     /**
@@ -1401,7 +1439,7 @@ public class FileUtils {
      * @since 1.1
      */
     private static void doCopyDirectory(final File srcDir, final File destDir, final FileFilter filter,
-            final boolean preserveFileDate, final List<String> exclusionList) throws IOException {
+            final boolean preserveFileDate, final List<String> exclusionList, final ProgressListener progressListener) throws IOException {
         // recurse
         final File[] srcFiles = filter == null ? srcDir.listFiles() : srcDir.listFiles(filter);
         if (srcFiles == null) {  // null if abstract pathname does not denote a directory, or if an I/O error occurs
@@ -1419,13 +1457,22 @@ public class FileUtils {
         if (destDir.canWrite() == false) {
             throw new IOException("Destination '" + destDir + "' cannot be written to");
         }
+        InternalProgressListener internalListener = null;
+        if (null != progressListener) {
+        	if (!(progressListener instanceof InternalProgressListener)) {
+	        	final long sizeTotal = sizeOf(srcDir);
+	        	internalListener = new InternalProgressListener(sizeTotal, progressListener);
+        	} else {
+        		internalListener = (InternalProgressListener) progressListener;
+        	}
+        }
         for (final File srcFile : srcFiles) {
             final File dstFile = new File(destDir, srcFile.getName());
             if (exclusionList == null || !exclusionList.contains(srcFile.getCanonicalPath())) {
                 if (srcFile.isDirectory()) {
-                    doCopyDirectory(srcFile, dstFile, filter, preserveFileDate, exclusionList);
+                    doCopyDirectory(srcFile, dstFile, filter, preserveFileDate, exclusionList, progressListener);
                 } else {
-                    doCopyFile(srcFile, dstFile, preserveFileDate);
+                    doCopyFile(srcFile, dstFile, preserveFileDate, internalListener);
                 }
             }
         }
@@ -2574,6 +2621,26 @@ public class FileUtils {
 
         return size;
     }
+    
+    /**
+     * Counts the size of a collection of files.
+     * 
+     * @param files collection of files and/or directories to inspect, must not be {@code null} 
+     * @return sum of sizes of all files in bytes
+     * @throws NullPointerException
+     *             if the collection is {@code null}
+     * @since 2.5
+     */
+    public static long sizeOf(Collection<File> files) {
+    	if (null == files) {
+    		throw new NullPointerException("Collection must not be null.");
+    	}
+    	long sizeTotal = 0;
+    	for (File file : files) {
+			sizeTotal += sizeOf(file);
+		}
+    	return sizeTotal;
+    }
 
     /**
      * Checks that the given {@code File} exists and is a directory.
@@ -2806,7 +2873,11 @@ public class FileUtils {
             if (destDir.getCanonicalPath().startsWith(srcDir.getCanonicalPath())) {
                 throw new IOException("Cannot move directory: "+srcDir+" to a subdirectory of itself: "+destDir);
             }
-            copyDirectory( srcDir, destDir );
+            copyDirectory(srcDir, destDir, new ProgressListener() {
+				@Override
+				public void onProgress(long current, long total) {
+				}
+			});
             deleteDirectory( srcDir );
             if (srcDir.exists()) {
                 throw new IOException("Failed to delete original directory '" + srcDir +
@@ -2993,4 +3064,26 @@ public class FileUtils {
         }
     }
 
+    private static class InternalProgressListener implements ProgressListener {
+
+    	private final long sizeTotal;
+    	private long currentOffset = 0;
+		private final ProgressListener userListener;
+		
+		public InternalProgressListener(final long sizeTotal, final ProgressListener userListener) {
+			this.sizeTotal = sizeTotal;
+			this.userListener = userListener;
+    	}
+    	
+		@Override
+		public void onProgress(long current, long total) {
+			userListener.onProgress(currentOffset + current, sizeTotal);
+		}
+		
+		public void shiftCurrentOffset(final long shiftLength) {
+			currentOffset += shiftLength;
+		}
+
+    }
+    
 }

@@ -1,6 +1,6 @@
 
 Apache Commons IO 
-Version 2.4
+Version 2.5-SNAPSHOT - brute force edition
 Release Notes
 
 INTRODUCTION:
@@ -13,9 +13,13 @@ The Commons IO library contains utility classes, stream implementations, file fi
 file comparators, endian transformation classes, and much more.
 
 ==============================================================================
-Apache Commons IO Version 2.4
+Apache Commons IO Version 2.5-SNAPSHOT - brute force edition
 ==============================================================================
-New features and bug fixes.
+New feature: tri-forced the new "ProgressListener" interface into some of the public
+             methods of FileUtils, to keep track of the copy progress.
+             This feature is not tested and there are no tests for it.
+             DO NOT use this version of commons-io, it will break stuff and make
+             you hurt.
 
 Changes in this version include:
 
